@@ -131,19 +131,19 @@ const useStyles = makeStyles((theme) => ({
 
 export const App = () => {
   const classes = useStyles()
-
-  const [run, setRun] = React.useState<string>('')
+  const urlParams = new URLSearchParams(window.location.search);
+  const [run, setRun] = React.useState<string>(urlParams.get('run') || '')
   const [runs, setRuns] = React.useState<string[]>([])
   const [runsLoading, setRunsLoading] = React.useState(true)
 
   const [workers, setWorkers] = React.useState<string[]>([])
-  const [worker, setWorker] = React.useState<string>('')
+  const [worker, setWorker] = React.useState<string>(urlParams.get('worker') || '')
 
   const [spans, setSpans] = React.useState<string[]>([])
-  const [span, setSpan] = React.useState<string | ''>('')
+  const [span, setSpan] = React.useState<string | ''>(urlParams.get('span') || '')
 
   const [views, setViews] = React.useState<Views[]>([])
-  const [view, setView] = React.useState<Views | ''>('')
+  const [view, setView] = React.useState<Views | ''>(urlParams.get('view') || '')
   const [loaded, setLoaded] = React.useState(false)
   const iframeRef = React.useRef<HTMLIFrameElement>(null)
 
