@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "output_json.h"
 
@@ -39,6 +34,14 @@ static constexpr char kDefaultLogFileFmt[] =
 #else
 static constexpr char kDefaultLogFileFmt[] = "libkineto_activities_{}.json";
 #endif
+
+std::string& ChromeTraceLogger::sanitizeStrForJSON(std::string& value) {
+// Replace all backslashes with forward slash because Windows paths causing JSONDecodeError.
+#ifdef _WIN32
+  std::replace(value.begin(), value.end(), '\\', '/');
+#endif
+  return value;
+}
 
 void ChromeTraceLogger::metadataToJSON(
     const std::unordered_map<std::string, std::string>& metadata) {
@@ -154,7 +157,37 @@ void ChromeTraceLogger::handleResourceInfo(
       time, info.deviceId, info.id,
       info.name,
       time, info.deviceId, info.id,
-      info.id);
+      info.sortIndex);
+  // clang-format on
+}
+
+void ChromeTraceLogger::handleOverheadInfo(
+    const OverheadInfo& info,
+    int64_t time) {
+  if (!traceOf_) {
+    return;
+  }
+
+  // TOOD: reserve pid = -1 for overhead but we need to rethink how to scale this for
+  // other metadata
+  // clang-format off
+  traceOf_ << fmt::format(R"JSON(
+  {{
+    "name": "process_name", "ph": "M", "ts": {}, "pid": -1, "tid": 0,
+    "args": {{
+      "name": "{}"
+    }}
+  }},
+  {{
+    "name": "process_sort_index", "ph": "M", "ts": {}, "pid": -1, "tid": 0,
+    "args": {{
+      "sort_index": {}
+    }}
+  }},)JSON",
+      time,
+      info.name,
+      time,
+      0x100000All);
   // clang-format on
 }
 
@@ -210,11 +243,21 @@ void ChromeTraceLogger::addIterationMarker(const TraceSpan& span) {
 
 static std::string traceActivityJson(const ITraceActivity& activity) {
   // clang-format off
+  int64_t ts = activity.timestamp();
+  int64_t duration = activity.duration();
+  if (activity.type() ==  ActivityType::GPU_USER_ANNOTATION) {
+    // The GPU user annotations start at the same time as the
+    // first associated GPU activity. Since they appear later
+    // in the trace file, this causes a visualization issue in Chrome.
+    // Make it start one us earlier.
+    ts--;
+    duration++; // Still need it to end at the orginal point
+  }
   return fmt::format(R"JSON(
     "name": "{}", "pid": {}, "tid": {},
     "ts": {}, "dur": {})JSON",
       activity.name(), activity.deviceId(), activity.resourceId(),
-      activity.timestamp(), activity.duration());
+      ts, duration);
   // clang-format on
 }
 
@@ -237,7 +280,7 @@ void ChromeTraceLogger::handleGenericInstantEvent(
       op.timestamp(), op.metadataJson());
 }
 
-void ChromeTraceLogger::handleGenericActivity(
+void ChromeTraceLogger::handleActivity(
     const libkineto::ITraceActivity& op) {
   if (!traceOf_) {
     return;
@@ -260,10 +303,6 @@ void ChromeTraceLogger::handleGenericActivity(
         op.traceSpan()->name,
         op.traceSpan()->iteration);
   }
-  const std::string tid =
-      op.type() == ActivityType::GPU_USER_ANNOTATION ?
-      fmt::format("stream {} annotations", op.resourceId()) :
-      fmt::format("{}", op.resourceId());
 
   // clang-format off
   traceOf_ << fmt::format(R"JSON(
@@ -281,6 +320,11 @@ void ChromeTraceLogger::handleGenericActivity(
   if (op.flowId() > 0) {
     handleGenericLink(op);
   }
+}
+
+void ChromeTraceLogger::handleGenericActivity(
+    const libkineto::GenericTraceActivity& op) {
+        handleActivity(op);
 }
 
 void ChromeTraceLogger::handleGenericLink(const ITraceActivity& act) {
@@ -521,7 +565,7 @@ void ChromeTraceLogger::finalizeTrace(
         }
       }
       value.append("]");
-      PreparedMetadata[kv.first] = value;
+      PreparedMetadata[kv.first] = sanitizeStrForJSON(value);
     }
   }
   metadataToJSON(PreparedMetadata);
@@ -530,7 +574,7 @@ void ChromeTraceLogger::finalizeTrace(
   // Putting this here because the last entry MUST not end with a comma.
   traceOf_ << fmt::format(R"JSON(
   "traceName": "{}"
-}})JSON", fileName_);
+}})JSON", sanitizeStrForJSON(fileName_));
   // clang-format on
 
   traceOf_.close();

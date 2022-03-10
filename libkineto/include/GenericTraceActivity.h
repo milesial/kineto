@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -40,6 +35,10 @@ class GenericTraceActivity : public ITraceActivity {
 
   int64_t resourceId() const override {
     return resource;
+  }
+
+  int32_t getThreadId() const override {
+    return threadId;
   }
 
   int64_t timestamp() const override {
@@ -84,9 +83,9 @@ class GenericTraceActivity : public ITraceActivity {
 
   void log(ActivityLogger& logger) const override;
 
-  //Encode client side metadata as a key/value string.
-  template<typename T>
-  void addMetadata(const std::string& key, T value) {
+  //Encode client side metadata as a key/value
+  template <typename ValType>
+  void addMetadata(const std::string& key, const ValType& value) {
     metadata_.push_back(fmt::format("\"{}\": {}", key, value));
   }
 
@@ -105,6 +104,7 @@ class GenericTraceActivity : public ITraceActivity {
   int32_t id{0};
   int32_t device{0};
   int32_t resource{0};
+  int32_t threadId{0};
   ActivityType activityType;
   std::string activityName;
   struct Flow {

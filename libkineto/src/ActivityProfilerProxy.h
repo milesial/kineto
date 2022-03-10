@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -47,8 +42,12 @@ class ActivityProfilerProxy : public ActivityProfilerInterface {
   void scheduleTrace(const std::string& configStr) override;
   void scheduleTrace(const Config& config);
 
-  void prepareTrace(const std::set<ActivityType>& activityTypes) override;
+  void prepareTrace(
+      const std::set<ActivityType>& activityTypes,
+      const std::string& configStr = "") override;
+
   void startTrace() override;
+  void step() override;
   std::unique_ptr<ActivityTraceInterface> stopTrace() override;
 
   void pushCorrelationId(uint64_t id) override;

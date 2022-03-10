@@ -1,15 +1,11 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "ActivityProfilerProxy.h"
 
 #include "ActivityProfilerController.h"
 #include "Config.h"
 #include "CuptiActivityApi.h"
+#include "Logger.h"
 #include <chrono>
 
 namespace KINETO_NAMESPACE {
@@ -40,11 +36,27 @@ void ActivityProfilerProxy::scheduleTrace(const Config& config) {
 }
 
 void ActivityProfilerProxy::prepareTrace(
-    const std::set<ActivityType>& activityTypes) {
+    const std::set<ActivityType>& activityTypes,
+    const std::string& configStr) {
   Config config;
+  bool validate_required = true;
+
+  // allow user provided config to override default options
+  if (!configStr.empty()) {
+    if (!config.parse(configStr)) {
+      LOG(WARNING) << "Failed to parse config : " << configStr;
+    }
+    // parse also runs validate
+    validate_required = false;
+  }
+
   config.setClientDefaults();
   config.setSelectedActivityTypes(activityTypes);
-  config.validate(std::chrono::system_clock::now());
+
+  if (validate_required) {
+    config.validate(std::chrono::system_clock::now());
+  }
+
   controller_->prepareTrace(config);
 }
 
@@ -55,6 +67,10 @@ void ActivityProfilerProxy::startTrace() {
 std::unique_ptr<ActivityTraceInterface>
 ActivityProfilerProxy::stopTrace() {
   return controller_->stopTrace();
+}
+
+void ActivityProfilerProxy::step() {
+  controller_->step();
 }
 
 bool ActivityProfilerProxy::isActive() {

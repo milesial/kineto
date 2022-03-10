@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -46,23 +41,28 @@ class MemoryTraceLogger : public ActivityLogger {
     resourceInfoList_.emplace_back(info, time);
   }
 
+  void handleOverheadInfo(const OverheadInfo& info, int64_t time) override {}
+
   void handleTraceSpan(const TraceSpan& span) override {
     // Handled separately
   }
 
-  // Just add the pointer to the list - ownership of the underlying
-  // objects must be transferred in ActivityBuffers via finalizeTrace
-  void handleGenericActivity(const ITraceActivity& activity) override {
-    activities_.push_back(&activity);
-  }
-
-#ifdef HAS_CUPTI
   template<class T>
   void addActivityWrapper(const T& act) {
     wrappers_.push_back(std::make_unique<T>(act));
     activities_.push_back(wrappers_.back().get());
   }
 
+  // Just add the pointer to the list - ownership of the underlying
+  // objects must be transferred in ActivityBuffers via finalizeTrace
+  void handleActivity(const ITraceActivity& activity) override {
+    activities_.push_back(&activity);
+  }
+  void handleGenericActivity(const GenericTraceActivity& activity) override {
+    addActivityWrapper(activity);
+  }
+
+#ifdef HAS_CUPTI
   void handleGpuActivity(const GpuActivity<CUpti_ActivityKernel4>& activity) override {
     addActivityWrapper(activity);
   }

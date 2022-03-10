@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "CuptiActivityApi.h"
 
@@ -117,6 +112,12 @@ static bool nextActivityRecord(
 
 void CuptiActivityApi::setMaxBufferSize(int size) {
   maxGpuBufferCount_ = 1 + size / kBufSize;
+}
+
+void CuptiActivityApi::forceLoadCupti() {
+#ifdef HAS_CUPTI
+  CUPTI_CALL(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL));
+#endif
 }
 
 #ifdef HAS_CUPTI
@@ -302,6 +303,9 @@ void CuptiActivityApi::enableCuptiActivities(
     if (activity == ActivityType::CUDA_RUNTIME) {
       CUPTI_CALL(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_RUNTIME));
     }
+    if (activity == ActivityType::OVERHEAD) {
+      CUPTI_CALL(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_OVERHEAD));
+    }
   }
 #endif
 
@@ -327,6 +331,9 @@ void CuptiActivityApi::disableCuptiActivities(
     }
     if (activity == ActivityType::CUDA_RUNTIME) {
       CUPTI_CALL(cuptiActivityDisable(CUPTI_ACTIVITY_KIND_RUNTIME));
+    }
+    if (activity == ActivityType::OVERHEAD) {
+      CUPTI_CALL(cuptiActivityDisable(CUPTI_ACTIVITY_KIND_OVERHEAD));
     }
   }
   externalCorrelationEnabled_ = false;

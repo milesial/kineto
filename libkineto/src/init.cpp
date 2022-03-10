@@ -1,29 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * This library performs basic cupti event collection and reporting.
- *
- * Usage:
- * Library can be built as a standalone shared library or for inclusion in a
- * cuda binary using the libkineto.so and kineto build targets respectively.
- *
- * When included in a cuda binary, the library is initialized upon loading
- * by dlopen().
- * When used as a standalone library, it can be loaded by setting the
- * CUDA_INJECTION64_PATH environment variable (for the target process) to point
- * at the library, and the cuda driver will load it.
- *
- * Which events to profile can be specified in the config file pointed to
- * by KINETO_CONFIG as a comma separated list. See cupti documentation for
- * event names.
- *
- * The library will fail to initialize when no GPU is present on the system
- * (most likely because libcupti.so will not be found by the lazy loading
- * mechanism), but allows the application to continue.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include <memory>
 #include <mutex>
@@ -32,6 +7,7 @@
 #include "Config.h"
 #ifdef HAS_CUPTI
 #include "CuptiCallbackApi.h"
+#include "CuptiActivityApi.h"
 #include "EventProfilerController.h"
 #endif
 #include "cupti_call.h"
@@ -67,6 +43,15 @@ static void initProfilers(
     config_loader.initBaseConfig();
     EventProfilerController::start(ctx, config_loader);
   }
+}
+
+// Some models suffer from excessive instrumentation code gen
+// on dynamic attach which can hang for more than 5+ seconds.
+// If the workload was meant to be traced, preload the CUPTI
+// to take the performance hit early on.
+// https://docs.nvidia.com/cupti/r_main.html#r_overhead
+static bool shouldPreloadCuptiInstrumentation() {
+  return getenv("PRELOAD_CUPTI_INSTRUMENTATION");
 }
 
 static void stopProfiler(
@@ -125,6 +110,10 @@ bool libkineto_init(bool cpuOnly, bool logOnError) {
                   << "https://developer.nvidia.com/nvidia-development-tools-solutions-err-nvgpuctrperm-cupti";
       }
     }
+  }
+
+  if (shouldPreloadCuptiInstrumentation()) {
+    CuptiActivityApi::forceLoadCupti();
   }
 #endif // HAS_CUPTI
 

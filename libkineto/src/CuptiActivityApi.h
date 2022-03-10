@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -65,6 +60,8 @@ class CuptiActivityApi {
 
   std::atomic_bool stopCollection{false};
   int64_t flushOverhead{0};
+
+  static void forceLoadCupti();
 
  private:
 #ifdef HAS_CUPTI

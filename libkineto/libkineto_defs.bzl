@@ -42,6 +42,7 @@ def get_libkineto_cpu_only_srcs(with_api = True):
         "src/CuptiActivityApi.cpp",
         "src/Demangle.cpp",
         "src/GenericTraceActivity.cpp",
+        "src/ILoggerObserver.cpp",
         "src/Logger.cpp",
         "src/init.cpp",
         "src/output_csv.cpp",
@@ -50,12 +51,15 @@ def get_libkineto_cpu_only_srcs(with_api = True):
 
 def get_libkineto_public_headers():
     return [
+        "include/AbstractConfig.h",
         "include/ActivityProfilerInterface.h",
         "include/ActivityType.h",
+        "include/Config.h",
         "include/ClientInterface.h",
         "include/GenericTraceActivity.h",
         "include/GenericTraceActivity.h",
         "include/IActivityProfiler.h",
+        "include/ILoggerObserver.h",
         "include/ITraceActivity.h",
         "include/TraceSpan.h",
         "include/ThreadUtil.h",
@@ -67,6 +71,7 @@ def get_libkineto_public_headers():
 # suppress these warnings.
 KINETO_COMPILER_FLAGS = [
     "-fexceptions",
+    "-Wno-deprecated-declarations",
     "-Wno-unused-function",
     "-Wno-unused-private-field",
 ]

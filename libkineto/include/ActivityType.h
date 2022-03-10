@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -21,10 +16,12 @@ enum class ActivityType {
     CONCURRENT_KERNEL, // on-device kernels
     EXTERNAL_CORRELATION,
     CUDA_RUNTIME, // host side cuda runtime events
+    CUDA_PROFILER_RANGE, // CUPTI Profiler range for performance metrics
     GLOW_RUNTIME, // host side glow runtime events
     CPU_INSTANT_EVENT, // host side point-like events
     PYTHON_FUNCTION,
-    ENUM_COUNT
+    OVERHEAD, // CUPTI induced overhead events sampled from its overhead API.
+    ENUM_COUNT // This is to add buffer and not used for any profiling logic. Add your new type before it.
 };
 
 const char* toString(ActivityType t);

@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "ConfigLoader.h"
 
@@ -15,6 +10,7 @@
 #include <chrono>
 #include <fmt/format.h>
 #include <fstream>
+#include <memory>
 
 #include "DaemonConfigLoader.h"
 
@@ -38,7 +34,6 @@ constexpr char kOnDemandConfigFile[] = "libkineto.conf";
 
 constexpr std::chrono::seconds kConfigUpdateIntervalSecs(300);
 constexpr std::chrono::seconds kOnDemandConfigUpdateIntervalSecs(5);
-constexpr std::chrono::seconds kOnDemandConfigVerboseLogDurationSecs(120);
 
 #ifdef __linux__
 static struct sigaction originalUsr2Handler = {};
@@ -171,6 +166,9 @@ ConfigLoader::~ConfigLoader() {
     }
     updateThread_->join();
   }
+#if !USE_GOOGLE_LOG
+  Logger::clearLoggerObservers();
+#endif // !USE_GOOGLE_LOG
 }
 
 void ConfigLoader::handleOnDemandSignal() {
@@ -217,6 +215,10 @@ void ConfigLoader::updateBaseConfig() {
       daemonConfigLoader()->setCommunicationFabric(config_->ipcFabricEnabled());
     }
     setupSignalHandler(config_->sigUsr2Enabled());
+    SET_LOG_VERBOSITY_LEVEL(
+        config_->verboseLogLevel(),
+        config_->verboseLogModules());
+    VLOG(0) << "Detected base config change";
   }
 }
 
@@ -250,7 +252,6 @@ void ConfigLoader::updateConfigThread() {
   auto now = system_clock::now();
   auto next_config_load_time = now;
   auto next_on_demand_load_time = now + onDemandConfigUpdateIntervalSecs_;
-  auto next_log_level_reset_time = now;
   seconds interval = configUpdateIntervalSecs_;
   if (interval > onDemandConfigUpdateIntervalSecs_) {
     interval = onDemandConfigUpdateIntervalSecs_;
@@ -276,6 +277,7 @@ void ConfigLoader::updateConfigThread() {
       onDemandConfig = config_->clone();
       configureFromSignal(now, *onDemandConfig);
     } else if (now > next_on_demand_load_time) {
+      onDemandConfig = std::make_unique<Config>();
       configureFromDaemon(now, *onDemandConfig);
       next_on_demand_load_time = now + onDemandConfigUpdateIntervalSecs_;
     }
@@ -286,12 +288,6 @@ void ConfigLoader::updateConfigThread() {
       SET_LOG_VERBOSITY_LEVEL(
           onDemandConfig->verboseLogLevel(),
           onDemandConfig->verboseLogModules());
-      next_log_level_reset_time = now + kOnDemandConfigVerboseLogDurationSecs;
-    }
-    if (now > next_log_level_reset_time) {
-      VLOG(0) << "Resetting verbose level";
-      SET_LOG_VERBOSITY_LEVEL(
-          config_->verboseLogLevel(), config_->verboseLogModules());
     }
   }
 }

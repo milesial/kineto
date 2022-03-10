@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -175,9 +170,18 @@ class Config : public AbstractConfig {
     selectedActivityTypes_ = types;
   }
 
+  bool isOpInputsCollectionEnabled() const {
+    return enableOpInputsCollection_;
+  }
+
   // Trace for this long
   std::chrono::milliseconds activitiesDuration() const {
     return activitiesDuration_;
+  }
+
+  // Trace for this many iterations, determined by external API
+  int activitiesRunIterations() const {
+    return activitiesRunIterations_;
   }
 
   std::chrono::milliseconds activitiesDurationDefault() const;
@@ -186,17 +190,16 @@ class Config : public AbstractConfig {
     activitiesDuration_ = duration;
   }
 
-  // Trace for this many iterations, determined by external API
-  int activitiesExternalIterations() const {
-    return activitiesExternalAPIIterations_;
-  }
-
   int activitiesMaxGpuBufferSize() const {
     return activitiesMaxGpuBufferSize_;
   }
 
   std::chrono::seconds activitiesWarmupDuration() const {
     return activitiesWarmupDuration_;
+  }
+
+  int activitiesWarmupIterations() const {
+    return activitiesWarmupIterations_;
   }
 
   // Timestamp at which the profiling to start, requested by the user.
@@ -213,6 +216,30 @@ class Config : public AbstractConfig {
   bool hasProfileStartTime() const {
     return requestTimestamp_.time_since_epoch().count() > 0 ||
         profileStartTime_.time_since_epoch().count() > 0;
+  }
+
+  int profileStartIteration() const {
+    return profileStartIteration_;
+  }
+
+  bool hasProfileStartIteration() const {
+    return profileStartIteration_ >= 0 && activitiesRunIterations_ > 0;
+  }
+
+  void setProfileStartIteration(int iter) {
+    profileStartIteration_ = iter;
+  }
+
+  int profileStartIterationRoundUp() const {
+    return profileStartIterationRoundUp_;
+  }
+
+  // calculate the start iteration accounting for warmup
+  int startIterationIncludingWarmup() const {
+    if (!hasProfileStartIteration()) {
+      return -1;
+    }
+    return profileStartIteration_ - activitiesWarmupIterations_;
   }
 
   const std::chrono::seconds maxRequestAge() const;
@@ -260,6 +287,23 @@ class Config : public AbstractConfig {
     return activitiesOnDemandTimestamp_;
   }
 
+  // Users may request and set trace id and group trace id.
+  const std::string& requestTraceID() const {
+    return requestTraceID_;
+  }
+
+  void setRequestTraceID(const std::string& tid) {
+    requestTraceID_ = tid;
+  }
+
+  const std::string& requestGroupTraceID() const {
+    return requestGroupTraceID_;
+  }
+
+  void setRequestGroupTraceID(const std::string& gtid) {
+    requestGroupTraceID_ = gtid;
+  }
+
   void updateActivityProfilerRequestReceivedTime();
 
   void printActivityProfilerConfig(std::ostream& s) const override;
@@ -292,7 +336,11 @@ class Config : public AbstractConfig {
   void selectDefaultActivityTypes() {
     // If the user has not specified an activity list, add all types
     for (ActivityType t : activityTypes()) {
-      selectedActivityTypes_.insert(t);
+      // Do no enable this by default
+      // TODO: introduce optional types
+      if (t != ActivityType::OVERHEAD) {
+        selectedActivityTypes_.insert(t);
+      }
     }
   }
 
@@ -339,10 +387,17 @@ class Config : public AbstractConfig {
 
   int activitiesMaxGpuBufferSize_;
   std::chrono::seconds activitiesWarmupDuration_;
+  int activitiesWarmupIterations_;
+
+  // Client Interface
+  // Enable inputs collection when tracing ops
+  bool enableOpInputsCollection_{true};
 
   // Profile for specified iterations and duration
   std::chrono::milliseconds activitiesDuration_;
-  int activitiesExternalAPIIterations_;
+  int activitiesRunIterations_;
+
+  // Below are not used
   // Use this net name for iteration count
   std::string activitiesExternalAPIIterationsTarget_;
   // Only profile nets that includes this in the name
@@ -357,6 +412,10 @@ class Config : public AbstractConfig {
 
   // Synchronized start timestamp
   std::chrono::time_point<std::chrono::system_clock> profileStartTime_;
+  // or start iteration
+  int profileStartIteration_;
+  int profileStartIterationRoundUp_;
+
   // DEPRECATED
   std::chrono::time_point<std::chrono::system_clock> requestTimestamp_;
 
@@ -365,6 +424,10 @@ class Config : public AbstractConfig {
 
   // Enable IPC Fabric instead of thrift communication
   bool enableIpcFabric_;
+
+  // Logger Metadata
+  std::string requestTraceID_;
+  std::string requestGroupTraceID_;
 };
 
 } // namespace KINETO_NAMESPACE

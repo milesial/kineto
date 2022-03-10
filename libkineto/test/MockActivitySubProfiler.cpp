@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include <memory>
 #include <set>
@@ -36,7 +31,7 @@ MockActivityProfiler::MockActivityProfiler(
 
 std::unique_ptr<IActivityProfilerSession> MockActivityProfiler::configure(
       const std::set<ActivityType>& /*activity_types*/,
-      const std::string& /*config*/) {
+      const Config& /*config*/) {
   auto session = std::make_unique<MockProfilerSession>();
 	session->set_test_activities(std::move(test_activities_));
   return session;
@@ -46,7 +41,7 @@ std::unique_ptr<IActivityProfilerSession> MockActivityProfiler::configure(
       int64_t /*ts_ms*/,
       int64_t /*duration_ms*/,
       const std::set<ActivityType>& activity_types,
-      const std::string& config) {
+      const Config& config) {
   return configure(activity_types, config);
 };
 

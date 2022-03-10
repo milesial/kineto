@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
@@ -14,7 +9,7 @@
 #include <array>
 #include <fmt/format.h>
 
-namespace KINETO_NAMESPACE {
+namespace libkineto {
 
 struct LoggerTypeName {
   constexpr LoggerTypeName(const char* n, LoggerOutputType t) : name(n), type(t) {};
@@ -27,6 +22,7 @@ static constexpr std::array<LoggerTypeName, LoggerTypeCount + 1> LoggerMap{{
     {"INFO", LoggerOutputType::INFO},
     {"WARNING", LoggerOutputType::WARNING},
     {"ERROR", LoggerOutputType::ERROR},
+    {"STAGE", LoggerOutputType::STAGE},
     {"???", LoggerOutputType::ENUM_COUNT}
 }};
 
@@ -52,7 +48,7 @@ LoggerOutputType toLoggerOutputType(const std::string& str) {
   throw std::invalid_argument(fmt::format("Invalid activity type: {}", str));
 }
 
-} // namespace KINETO_NAMESPACE
+} // namespace libkineto
 
 
 #endif // !USE_GOOGLE_LOG

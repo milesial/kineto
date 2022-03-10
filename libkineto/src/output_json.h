@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -38,11 +33,14 @@ class ChromeTraceLogger : public libkineto::ActivityLogger {
       const DeviceInfo& info,
       uint64_t time) override;
 
+  void handleOverheadInfo(const OverheadInfo& info, int64_t time) override;
+
   void handleResourceInfo(const ResourceInfo& info, int64_t time) override;
 
   void handleTraceSpan(const TraceSpan& span) override;
 
-  void handleGenericActivity(const ITraceActivity& activity) override;
+  void handleActivity(const ITraceActivity& activity) override;
+  void handleGenericActivity(const GenericTraceActivity& activity) override;
 
 #ifdef HAS_CUPTI
   void handleGpuActivity(const GpuActivity<CUpti_ActivityKernel4>& activity) override;
@@ -83,6 +81,8 @@ class ChromeTraceLogger : public libkineto::ActivityLogger {
   void handleGenericLink(const ITraceActivity& activity);
 
   void metadataToJSON(const std::unordered_map<std::string, std::string>& metadata);
+
+  std::string& sanitizeStrForJSON(std::string& value);
 
   std::string fileName_;
   std::ofstream traceOf_;

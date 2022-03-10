@@ -1,11 +1,6 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
-#include "src/Config.h"
+#include "include/Config.h"
 
 #include <fmt/format.h>
 #include <gtest/gtest.h>
@@ -73,8 +68,9 @@ TEST(ParseTest, DefaultActivityTypes) {
   Config cfg;
   cfg.validate(std::chrono::system_clock::now());
   auto all_activities = activityTypes();
+  // TODO: introduce optional activities
   EXPECT_EQ(cfg.selectedActivityTypes(),
-    std::set<ActivityType>(all_activities.begin(), all_activities.end()));
+    std::set<ActivityType>(all_activities.begin(), all_activities.end() - 1));
 }
 
 TEST(ParseTest, ActivityTypes) {
@@ -94,7 +90,8 @@ TEST(ParseTest, ActivityTypes) {
                             ActivityType::CONCURRENT_KERNEL,
                             ActivityType::EXTERNAL_CORRELATION,
                             ActivityType::GLOW_RUNTIME,
-                            ActivityType::CUDA_RUNTIME}));
+                            ActivityType::CUDA_RUNTIME,
+                            ActivityType::CUDA_PROFILER_RANGE}));
 
   Config cfg2;
   EXPECT_TRUE(cfg2.parse("ACTIVITY_TYPES=gpu_memcpy,gpu_MeMsEt,kernel"));

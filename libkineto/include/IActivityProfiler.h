@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -11,6 +6,7 @@
 #include <set>
 #include <vector>
 
+#include "Config.h"
 #include "GenericTraceActivity.h"
 
 /* This file includes an abstract base class for an activity profiler
@@ -20,6 +16,8 @@
  */
 
 namespace libkineto {
+
+using namespace KINETO_NAMESPACE;
 
 #ifdef _MSC_VER
 // workaround for the predefined ERROR macro on Windows
@@ -90,17 +88,17 @@ class IActivityProfiler {
   virtual const std::set<ActivityType>& availableActivities() const = 0;
 
   // Calls prepare() on registered tracer providers passing in the relevant
-  // activity types. Returns a profiler session handle (including uuid?).
+  // activity types. Returns a profiler session handle
   virtual std::unique_ptr<IActivityProfilerSession> configure(
       const std::set<ActivityType>& activity_types,
-      const std::string& config="") = 0;
+      const Config& config) = 0;
 
   // asynchronous version of the above with future timestamp and duration.
   virtual std::unique_ptr<IActivityProfilerSession> configure(
       int64_t ts_ms,
       int64_t duration_ms,
       const std::set<ActivityType>& activity_types,
-      const std::string& config = "") = 0;
+      const Config& config) = 0;
 };
 
 } // namespace libkineto

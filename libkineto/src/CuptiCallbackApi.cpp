@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "CuptiCallbackApi.h"
 
@@ -13,7 +8,9 @@
 #include <mutex>
 #include <shared_mutex>
 
+#ifdef HAS_CUPTI
 #include "cupti_call.h"
+#endif
 #include "Logger.h"
 
 
@@ -23,7 +20,7 @@ namespace KINETO_NAMESPACE {
 constexpr size_t MAX_CB_FNS_PER_CB = 8;
 
 // Reader Writer lock types
-using ReaderWriterLock = std::shared_mutex;
+using ReaderWriterLock = std::shared_timed_mutex;
 using ReaderLockGuard = std::shared_lock<ReaderWriterLock>;
 using WriteLockGuard = std::unique_lock<ReaderWriterLock>;
 
@@ -88,6 +85,8 @@ void CuptiCallbackApi::__callback_switchboard(
           cblist = &callbacks_.runtime[
             CUDA_LAUNCH_KERNEL - __RUNTIME_CB_DOMAIN_START];
           break;
+        default:
+          break;
       }
       break;
 
@@ -100,6 +99,8 @@ void CuptiCallbackApi::__callback_switchboard(
         case CUPTI_CBID_RESOURCE_CONTEXT_DESTROY_STARTING:
           cblist = &callbacks_.resource[
             RESOURCE_CONTEXT_DESTROYED - __RESOURCE_CB_DOMAIN_START];
+          break;
+        default:
           break;
       }
       break;

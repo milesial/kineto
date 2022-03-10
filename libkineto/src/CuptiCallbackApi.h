@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -16,6 +11,10 @@
 #include <memory>
 #include <mutex>
 #include <set>
+
+// TODO(T90238193)
+// @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
+#include "CuptiCallbackApiMock.h"
 
 namespace KINETO_NAMESPACE {
 
@@ -30,20 +29,6 @@ using namespace libkineto;
  *  Note: one design choice we made is to only support simple function pointers
  *  in order to speed up the implementation for fast path.
  */
-
-#ifndef HAS_CUPTI
-enum CUpti_CallbackDomain {
-  CUPTI_CB_DOMAIN_RESOURCE,
-  CUPTI_CB_DOMAIN_RUNTIME_API,
-};
-enum CUpti_CallbackData {
-  CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000,
-  CUPTI_CBID_RESOURCE_CONTEXT_CREATED,
-  CUPTI_CBID_RESOURCE_CONTEXT_DESTROY_STARTING,
-};
-
-using CUpti_CallbackId = size_t;
-#endif
 
 using CuptiCallbackFn = void(*)(
     CUpti_CallbackDomain domain,

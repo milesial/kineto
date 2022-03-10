@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "RoctracerActivityApi.h"
 
@@ -217,7 +212,7 @@ int RoctracerActivityApi::processActivities(
 
         a.activityType = ActivityType::CUDA_RUNTIME;
         a.activityName = std::string(name);
-        a.flow.id = item.id;
+        a.flow.id = record->correlation_id;
         a.flow.type = kLinkAsyncCpuGpu;
         a.flow.start = true;
 
@@ -241,7 +236,7 @@ int RoctracerActivityApi::processActivities(
 
         a.activityType = ActivityType::CONCURRENT_KERNEL;
         a.activityName = std::string(name);
-        a.flow.id = item.id;
+        a.flow.id = record->correlation_id;
         a.flow.type = kLinkAsyncCpuGpu;
 
         auto it = kernelNames_.find(record->correlation_id);

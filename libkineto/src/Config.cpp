@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "Config.h"
 
@@ -33,7 +28,6 @@ namespace KINETO_NAMESPACE {
 constexpr milliseconds kDefaultSamplePeriodMsecs(1000);
 constexpr milliseconds kDefaultMultiplexPeriodMsecs(1000);
 constexpr milliseconds kDefaultActivitiesProfileDurationMSecs(500);
-constexpr int kDefaultActivitiesExternalAPIIterations(3);
 constexpr int kDefaultActivitiesMaxGpuBufferSize(128 * 1024 * 1024);
 constexpr seconds kDefaultActivitiesWarmupDurationSecs(5);
 constexpr seconds kDefaultBufferUntilWarmup(10);
@@ -63,11 +57,15 @@ constexpr char kActivityTypesKey[] = "ACTIVITY_TYPES";
 constexpr char kActivitiesLogFileKey[] = "ACTIVITIES_LOG_FILE";
 constexpr char kActivitiesDurationKey[] = "ACTIVITIES_DURATION_SECS";
 constexpr char kActivitiesDurationMsecsKey[] = "ACTIVITIES_DURATION_MSECS";
-constexpr char kActivitiesIterationsKey[] = "ACTIVITIES_ITERATIONS";
 constexpr char kActivitiesWarmupDurationSecsKey[] = "ACTIVITIES_WARMUP_PERIOD_SECS";
 constexpr char kActivitiesMaxGpuBufferSizeKey[] =
     "ACTIVITIES_MAX_GPU_BUFFER_SIZE_MB";
 
+// Client Interface
+constexpr char kClientInterfaceEnableOpInputsCollection[] = "CLIENT_INTERFACE_ENABLE_OP_INPUTS_COLLECTION";
+
+constexpr char kActivitiesWarmupIterationsKey[] = "ACTIVITIES_WARMUP_ITERATIONS";
+constexpr char kActivitiesIterationsKey[] = "ACTIVITIES_ITERATIONS";
 // Common
 
 // Client-side timestamp used for synchronized start across hosts for
@@ -83,9 +81,31 @@ constexpr char kActivitiesMaxGpuBufferSizeKey[] =
 // propagating the request to the profiler.
 // If the request can not be honored, it is up to the profilers to report
 // an error somehow - no checks are done at config parse time.
+// Note PROFILE_START_ITERATION has higher precedence
 constexpr char kProfileStartTimeKey[] = "PROFILE_START_TIME";
 // DEPRECATED - USE PROFILE_START_TIME instead
 constexpr char kRequestTimestampKey[] = "REQUEST_TIMESTAMP";
+
+// Alternatively if the application supports reporting iterations
+// start the profile at specific iteration. If the iteration count
+// is >= this value the profile is started immediately.
+// A value >= 0 is valid for this config option to take effect.
+// Note PROFILE_START_ITERATION will take precedence over PROFILE_START_TIME.
+constexpr char kProfileStartIterationKey[] = "PROFILE_START_ITERATION";
+
+// Users can also start the profile on an integer multiple of the config
+// value PROFILE_START_ITERATION_ROUNDUP. This knob behaves similar to
+// PROFILE_START_ITERATION but instead of saying : "start collection trace on
+// iteration 500", one can configure it to "start collecting trace on the next
+// 100th iteration".
+//
+// For example,
+//   PROFILE_START_ITERATION_ROUNDUP = 1000, and the current iteration is 2010
+//   The profile will then be collected on the next multiple of 1000 ie. 3000
+// Note PROFILE_START_ITERATION_ROUNDUP will also take precedence over
+// PROFILE_START_TIME.
+constexpr char kProfileStartIterationRoundUpKey[]
+  = "PROFILE_START_ITERATION_ROUNDUP";
 
 // Enable on-demand trigger via kill -USR2 <pid>
 // When triggered in this way, /tmp/libkineto.conf will be used as config.
@@ -173,10 +193,13 @@ Config::Config()
       activitiesLogUrl_(fmt::format("file://{}", activitiesLogFile_)),
       activitiesMaxGpuBufferSize_(kDefaultActivitiesMaxGpuBufferSize),
       activitiesWarmupDuration_(kDefaultActivitiesWarmupDurationSecs),
+      activitiesWarmupIterations_(0),
       activitiesDuration_(kDefaultActivitiesProfileDurationMSecs),
-      activitiesExternalAPIIterations_(kDefaultActivitiesExternalAPIIterations),
+      activitiesRunIterations_(0),
       activitiesOnDemandTimestamp_(milliseconds(0)),
       profileStartTime_(milliseconds(0)),
+      profileStartIteration_(-1),
+      profileStartIterationRoundUp_(-1),
       requestTimestamp_(milliseconds(0)),
       enableSigUsr2_(false),
       enableIpcFabric_(false) {
@@ -275,7 +298,7 @@ bool Config::handleOption(const std::string& name, std::string& val) {
     activitiesDuration_ = milliseconds(toInt32(val));
     activitiesOnDemandTimestamp_ = timestamp();
   } else if (!name.compare(kActivitiesIterationsKey)) {
-    activitiesExternalAPIIterations_ = toInt32(val);
+    activitiesRunIterations_ = toInt32(val);
     activitiesOnDemandTimestamp_ = timestamp();
   } else if (!name.compare(kLogVerboseLevelKey)) {
     verboseLogLevel_ = toInt32(val);
@@ -291,17 +314,28 @@ bool Config::handleOption(const std::string& name, std::string& val) {
     activitiesMaxGpuBufferSize_ = toInt32(val) * 1024 * 1024;
   } else if (!name.compare(kActivitiesWarmupDurationSecsKey)) {
     activitiesWarmupDuration_ = seconds(toInt32(val));
+  } else if (!name.compare(kActivitiesWarmupIterationsKey)) {
+    activitiesWarmupIterations_ = toInt32(val);
+  }
+
+  // Client Interface
+  else if (!name.compare(kClientInterfaceEnableOpInputsCollection)) {
+    enableOpInputsCollection_ = toBool(val);
   }
 
   // Common
   else if (!name.compare(kRequestTimestampKey)) {
-    LOG(WARNING) << kRequestTimestampKey
-                 << " has been deprecated - please use "
-                 << kProfileStartTimeKey;
+    VLOG(0) << kRequestTimestampKey
+            << " has been deprecated - please use "
+            << kProfileStartTimeKey;
     requestTimestamp_ = handleRequestTimestamp(toInt64(val));
   } else if (!name.compare(kProfileStartTimeKey)) {
     profileStartTime_ =
       time_point<system_clock>(milliseconds(toInt64(val)));
+  } else if (!name.compare(kProfileStartIterationKey)) {
+    profileStartIteration_ = toInt32(val);
+  } else if (!name.compare(kProfileStartIterationRoundUpKey)) {
+    profileStartIterationRoundUp_ = toInt32(val);
   } else if (!name.compare(kEnableSigUsr2Key)) {
     enableSigUsr2_ = toBool(val);
   } else if (!name.compare(kEnableIpcFabricKey)) {
@@ -382,6 +416,18 @@ void Config::validate(
         activitiesWarmupDuration() + kDefaultBufferUntilWarmup;
   }
 
+  if (profileStartIterationRoundUp_ == 0) {
+    // setting to 0 will mess up modulo arithmetic, set it to -1 so it has no effect
+    LOG(WARNING) << "Profiler start iteration round up should be >= 1.";
+    profileStartIterationRoundUp_ = -1;
+  }
+
+  if (profileStartIterationRoundUp_ > 0 && !hasProfileStartIteration()) {
+    VLOG(0) << "Setting profiler start iteration to 0 so this config is "
+            << "triggered via iteration count.";
+    profileStartIteration_ = 0;
+  }
+
   if (selectedActivityTypes_.size() == 0) {
     selectDefaultActivityTypes();
   }
@@ -393,17 +439,24 @@ void Config::setReportPeriod(milliseconds msecs) {
 
 void Config::printActivityProfilerConfig(std::ostream& s) const {
   s << "Log file: " << activitiesLogFile() << std::endl;
-  s << "Trace Iterations: " << activitiesExternalIterations()
-    << std::endl;
-  if (hasProfileStartTime()) {
+  if (hasProfileStartIteration()) {
+    s << "Trace start Iteration: " << profileStartIteration() << std::endl;
+    s << "Trace warmup Iterations: " << activitiesWarmupIterations() << std::endl;
+    s << "Trace profile Iterations: " << activitiesRunIterations() << std::endl;
+    if (profileStartIterationRoundUp() > 0) {
+      s << "Trace start iteration roundup : " << profileStartIterationRoundUp()
+        << std::endl;
+    }
+  } else if (hasProfileStartTime()) {
     std::time_t t_c = system_clock::to_time_t(requestTimestamp());
     LOG(INFO) << "Trace start time: "
               << fmt::format("{:%Y-%m-%d %H:%M:%S}", fmt::localtime(t_c));
+    s << "Trace duration: " << activitiesDuration().count() << "ms"
+      << std::endl;
+    s << "Warmup duration: " << activitiesWarmupDuration().count() << "s"
+      << std::endl;
   }
-  s << "Trace duration: " << activitiesDuration().count() << "ms"
-    << std::endl;
-  s << "Warmup duration: " << activitiesWarmupDuration().count() << "s"
-    << std::endl;
+
   s << "Max GPU buffer size: " << activitiesMaxGpuBufferSize() / 1024 / 1024
     << "MB" << std::endl;
 

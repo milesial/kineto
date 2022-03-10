@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -55,7 +50,8 @@ class CuptiActivityProfiler {
   // memory usage limit (ACTIVITIES_MAX_GPU_BUFFER_SIZE_MB) during warmup.
   const std::chrono::time_point<std::chrono::system_clock> performRunLoopStep(
       const std::chrono::time_point<std::chrono::system_clock>& now,
-      const std::chrono::time_point<std::chrono::system_clock>& nextWakeupTime);
+      const std::chrono::time_point<std::chrono::system_clock>& nextWakeupTime,
+      int64_t currentIter = -1);
 
   // Used for async requests
   void setLogger(ActivityLogger* logger) {
@@ -105,12 +101,18 @@ class CuptiActivityProfiler {
     int32_t tid = threadId();
     int32_t pid = processId();
     std::lock_guard<std::mutex> guard(mutex_);
+    recordThreadInfo(sysTid, tid, pid);
+  }
+
+  // T107508020: We can deprecate the recordThreadInfo(void) once we optimized profiler_kineto
+  void recordThreadInfo(int32_t sysTid, int32_t tid, int32_t pid) {
     if (resourceInfo_.find({pid, tid}) == resourceInfo_.end()) {
       resourceInfo_.emplace(
           std::make_pair(pid, tid),
           ActivityLogger::ResourceInfo(
               pid,
               sysTid,
+              sysTid, // sortindex
               fmt::format("thread {} ({})", sysTid, getThreadName())));
     }
   }
@@ -168,12 +170,21 @@ class CuptiActivityProfiler {
   // CUDA runtime <-> GPU Activity
   std::unordered_map<int64_t, const ITraceActivity*>
       correlatedCudaActivities_;
+  std::unordered_map<int64_t, int64_t> userCorrelationMap_;
 
   // data structure to collect cuptiActivityFlushAll() latency overhead
   struct profilerOverhead {
     int64_t overhead;
     int cntr;
   };
+
+  bool isWarmupDone(
+      const std::chrono::time_point<std::chrono::system_clock>& now,
+      int64_t currentIter) const;
+
+  bool isCollectionDone(
+      const std::chrono::time_point<std::chrono::system_clock>& now,
+      int64_t currentIter) const;
 
   void startTraceInternal(
       const std::chrono::time_point<std::chrono::system_clock>& now);
@@ -195,12 +206,13 @@ class CuptiActivityProfiler {
       ActivityLogger& logger);
 
   // Create resource names for streams
-  inline void recordStream(int device, int id) {
+  inline void recordStream(int device, int id, const char* postfix) {
     if (resourceInfo_.find({device, id}) == resourceInfo_.end()) {
       resourceInfo_.emplace(
           std::make_pair(device, id),
           ActivityLogger::ResourceInfo(
-              device, id, fmt::format("stream {}", id)));
+              device, id, id, fmt::format(
+                  "stream {} {}", id, postfix)));
     }
   }
 
@@ -230,6 +242,8 @@ class CuptiActivityProfiler {
       const CUpti_ActivityExternalCorrelation* correlation);
   void handleRuntimeActivity(
       const CUpti_ActivityAPI* activity, ActivityLogger* logger);
+  void handleOverheadActivity(
+      const CUpti_ActivityOverhead* activity, ActivityLogger* logger);
   void handleGpuActivity(const ITraceActivity& act,
       ActivityLogger* logger);
   template <class T>
@@ -274,6 +288,7 @@ class CuptiActivityProfiler {
   // Start and end time used for triggering and stopping profiling
   std::chrono::time_point<std::chrono::system_clock> profileStartTime_;
   std::chrono::time_point<std::chrono::system_clock> profileEndTime_;
+  int64_t profileStartIter_ = -1, profileEndIter_ = -1;
 
 
   // All recorded trace spans, both CPU and GPU
@@ -292,6 +307,8 @@ class CuptiActivityProfiler {
   std::map<
       std::pair<int64_t, int64_t>,
       ActivityLogger::ResourceInfo> resourceInfo_;
+
+  std::vector<ActivityLogger::OverheadInfo> overheadInfo_;
 
   // the overhead to flush the activity buffer
   profilerOverhead flushOverhead_;
@@ -338,8 +355,10 @@ class CuptiActivityProfiler {
   // a vector of active profiler plugin sessions
   std::vector<std::unique_ptr<IActivityProfilerSession>> sessions_;
 
-  // LoggerObserver to collect all LOGs during the trace
+  // LoggerCollector to collect all LOGs during the trace
+#if !USE_GOOGLE_LOG
   std::unique_ptr<LoggerCollector> loggerCollectorMetadata_;
+#endif // !USE_GOOGLE_LOG
 };
 
 } // namespace KINETO_NAMESPACE

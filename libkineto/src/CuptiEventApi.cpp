@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "CuptiEventApi.h"
 
@@ -42,8 +37,14 @@ void CuptiEventApi::destroyGroupSets(CUpti_EventGroupSets* sets) {
 }
 
 bool CuptiEventApi::setContinuousMode() {
-  CUptiResult res = CUPTI_CALL(cuptiSetEventCollectionMode(
+  // Avoid logging noise for CUPTI_ERROR_LEGACY_PROFILER_NOT_SUPPORTED
+  CUptiResult res = CUPTI_CALL_NOWARN(cuptiSetEventCollectionMode(
       context_, CUPTI_EVENT_COLLECTION_MODE_CONTINUOUS));
+  if (res == CUPTI_ERROR_LEGACY_PROFILER_NOT_SUPPORTED) {
+    return false;
+  }
+  // Log warning on other errors
+  CUPTI_CALL(res);
   return (res == CUPTI_SUCCESS);
 }
 

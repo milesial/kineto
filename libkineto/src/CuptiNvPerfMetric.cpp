@@ -1,14 +1,16 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
+#ifdef HAS_CUPTI
+#include <cuda_runtime_api.h>
+#if defined(CUDART_VERSION) && CUDART_VERSION > 10000 && CUDART_VERSION < 11040
 #include <nvperf_cuda_host.h>
 #include <nvperf_host.h>
 #include <nvperf_target.h>
+#endif // cuda version > 10.00 and < 11.04
+#endif // HAS_CUPTI
 
+// TODO(T90238193)
+// @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
 #include "ScopeExit.h"
 #include "CuptiNvPerfMetric.h"
 #include "Logger.h"
@@ -16,7 +18,7 @@
 namespace KINETO_NAMESPACE {
 
 // Add a namespace to isolate these utility functions that are only
-// giong to be used by the CuptiRangeProfiler. These included calls
+// going to be used by the CuptiRangeProfiler. These included calls
 // to NVIDIA PerfWorks APIs.
 namespace nvperf {
 

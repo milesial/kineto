@@ -1,9 +1,4 @@
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree.
- */
+// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #include "cupti_strings.h"
 
@@ -63,6 +58,27 @@ const char* memoryKindString(
       return "Unrecognized";
   }
 }
+
+const char* overheadKindString(
+    CUpti_ActivityOverheadKind kind) {
+  switch (kind) {
+    case CUPTI_ACTIVITY_OVERHEAD_UNKNOWN:
+      return "Unknown";
+    case CUPTI_ACTIVITY_OVERHEAD_DRIVER_COMPILER:
+      return "Driver Compiler";
+    case CUPTI_ACTIVITY_OVERHEAD_CUPTI_BUFFER_FLUSH:
+      return "Buffer Flush";
+    case CUPTI_ACTIVITY_OVERHEAD_CUPTI_INSTRUMENTATION:
+      return "Instrumentation";
+    case CUPTI_ACTIVITY_OVERHEAD_CUPTI_RESOURCE:
+      return "Resource";
+    case CUPTI_ACTIVITY_OVERHEAD_FORCE_INT:
+      return "Force Int";
+    default:
+      return "Unrecognized";
+  }
+}
+
 
 
 static const char* runtimeCbidNames[] = {
